@@ -67,7 +67,7 @@ class Funcoes{
     $this->getAnaliseColunas();
     return $this->getRetorno();
   }
-
+  
   //MÉTODO DE ANÁLISE DE TABELASS
   public function getAnaliseTabelas(){
 
@@ -80,43 +80,70 @@ class Funcoes{
 
       //EXECUÇÃO DAS QUERIES
       $resA = $obA->execSQL($sql);
-      $resB = $obB->execSQL($sql);
 
       //AUXILIARES
-      $auxA = array();
-      $auxB = array();
+      $auxiliarA   = array();
+      $constraintsA = array();
 
       //NOME DO CAMPO RETORNADO NA SQL A
       $data = 'Tables_in_'.$this->bancoA['banco'];
 
-      //LAÇO PARA ATRIBUIR OS NOMES DAS TABELAS DO BANCO A AO AUXILIAR A
+      //LAÇO PARA ATRIBUIR OS CREATE TABLE DAS TABELAS DO BANCO A AO AUXILIAR A
       while($lineA = $resA->fetchObject()){
-        $auxA[] = $lineA->$data;
+        $auxiliarA[$lineA->$data] = $obA->execSQL("SHOW CREATE TABLE " . $lineA->$data)->fetch(PDO::FETCH_ASSOC);
+      }      
+      // REMOVER DEPOIS DE TESTES
+      ini_set('display_errors',true);
+      error_reporting(E_ALL);
+      // REMOVER DEPOIS DE TESTES
+      foreach($auxiliarA as $key=>$value){
+        $query = str_replace("CREATE TABLE","CREATE TABLE IF NOT EXISTS",$value["Create Table"]);
+        // FILTRAGEM DE ESPAÇOS DA QUERY 
+        $query = str_replace("\n","",$query);
+        $query = str_replace("/ {2,}/","",$query);
+        // LOCALIZAÇÃO DO INÍCIO E FINAL DAS CONSTRAINTS SE EXISTIREM
+        $constraintPosition = strpos($query,"CONSTRAINT");
+        $enginePosition     = strpos($query,") ENGINE");
+        
+        if($constraintPosition){
+
+          // EXTRAÇÃO DAS CONSTRAINTS
+          $constraints = (substr($query,$constraintPosition,$enginePosition-$constraintPosition));
+          // REMOÇÃO DAS CONSTRAINTS DA QUERY
+          $query = str_replace($constraints,"",$query);
+          // LOCALIZAÇÃO RELATIVA DA ALTERAÇÃO ANTERIOR PARA REMOVER , EXCEDENTE
+          $enginePosition = strpos($query,") ENGINE");
+          // REMOÇÃO DA VíRGULA EXCEDENTE
+          $lastCommaPosition = strrpos($query,strrchr($query,','));
+          $query[$lastCommaPosition] = " ";
+
+          $constraints = explode(",",$constraints);
+          foreach($constraints as $key=>$constraint){
+            $constraintName   = $this->getConstraintName($constraint);
+            $dropConstraint   = "ALTER TABLE " . $value["Table"] . " DROP CONSTRAINT IF EXISTS " . $constraintName . ";";
+            $createConstraint = "ALTER TABLE " . $value["Table"] . " ADD " . $constraint;
+            $constraintsA[]    = $dropConstraint . $createConstraint;
+          }
+        }
+        echo "Criando a tabela <b>" . $value["Table"] . "</b><br>";
+        $obB->execSQL($query);
+      }     
+      
+      echo '<pre>';print_r("Tabelas Criadas. Criando Constraints");echo'</pre>';
+      foreach($constraintsA as $key=>$queryConstraint){
+        echo "Criando a constraint <b>" . $this->getConstraintName($queryConstraint) . "</b><br>";
+        $obB->execSQL($queryConstraint);
       }
-
-      //NOME DO CAMPO RETORNADO NA SQL B
-      $data = 'Tables_in_'.$this->bancoB['banco'];
-
-      //LAÇO PARA ATRIBUIR OS NOMES DAS TABELAS DO BANCO B AO AUXILIAR B
-      while($lineB = $resB->fetchObject()){
-        $auxB[] = $lineB->$data;
-      }
-
-      //ATRIBUIÇÃO DOS VALORES ÀS VARIÁVEIS DA CLASSE
-      $this->tabelasA = $auxA;
-      $this->tabelasB = $auxB;
-
-      //OBTENDO A ANÁLISE DE DIFERENÇAS
-      $resAB = array_diff($auxA, $auxB);
-      $resBA = array_diff($auxB, $auxA);
-
-      //ATRIBUINDO A ANÁLISE ÀS VARIÁVEIS DA CLASSE
-      $this->analiseTabelasAB = $resAB;
-      $this->analiseTabelasBA = $resBA;
-
-      $this->resultadoBancoA = empty($resAB)?true:false;
-      $this->resultadoBancoB = empty($resBA)?true:false;
-
+      
+      echo '<pre>';print_r("Constraints Criadas.");echo'</pre>'; exit;
+  }
+  //MÉTODO QUE EXTRAI O NOME DA CONSTRAINT SQL DE UMA QUERY
+  private function getConstraintName($query){
+    $posicaoUltimaVirgula = strrpos($query,"`");
+    $constraintName = substr($query,strpos($query,"`")+1);
+    $posicaoUltimaVirgula = strpos($constraintName,strstr($constraintName,"`"));
+    $constraintName = substr($constraintName,0,$posicaoUltimaVirgula);
+    return $constraintName;
   }
 
   //MÉTODO DE ANÁLISE ESTRUTURAL DAS COLUNAS DE CADA TABELA DOS BANCOS

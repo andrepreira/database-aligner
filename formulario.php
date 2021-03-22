@@ -1,14 +1,14 @@
 <?php
   /**
   * Arquivo responsável pela tela de formulario para indicação dos bancos de
-  * dados a serem comparados
+  * dados a serem alinhados
   *
   * @package     Base
   * @subpackage  Formulario
   * @name        BaseFormulario
   * @version     1.0
   * @copyright   Webart
-  * @author      William Costa
+  * @author      Ryan Maia
   *
   */
 ?>
@@ -16,7 +16,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 
 <head>
-  <title>Comparador Banco de Dados</title>
+  <title>Alinhador Banco de Dados</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <meta name="format-detection" http-equiv="Content-Type" content="text/html; charset=utf-8; telephone=no" />
   <link rel="icon" type="image/png" href="favicon.ico">
@@ -29,7 +29,7 @@
 
 <body>
   <div class="content">
-    <h1>Comparador de banco de dados</h1>
+    <h1>Alinhador de banco de dados</h1>
     <form method="post">
       <div class="card card-custom">
         <div class="card-header">
@@ -75,7 +75,7 @@
       </div>
       <br>
       <div class="send-button">
-        <button class="btn btn-primary btn-block" type="submit">Comparar</button>
+        <button class="btn btn-primary btn-block" type="submit">Alinhar</button>
       </div>
     </form>
   </div>
