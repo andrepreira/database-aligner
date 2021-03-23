@@ -63,9 +63,9 @@ class Funcoes{
 
   //MÉTODO GET ANALISE EXECUTA OS MÉTODOS DE ANÁLISES ESTRUTURAIS DE TABELAS E COLUNAS E OBTEM O RETORNO DA ANALISE
   public function getAnalise(){
-    $this->getAnaliseTabelas();
+    //$this->getAnaliseTabelas();
     $this->getAnaliseColunas();
-    return $this->getRetorno();
+    //return $this->getRetorno();
   }
   
   //MÉTODO DE ANÁLISE DE TABELASS
@@ -135,7 +135,7 @@ class Funcoes{
         $obB->execSQL($queryConstraint);
       }
       
-      echo '<pre>';print_r("Constraints Criadas.");echo'</pre>'; exit;
+      echo '<pre>';print_r("Constraints Criadas.");echo'</pre>';
   }
   //MÉTODO QUE EXTRAI O NOME DA CONSTRAINT SQL DE UMA QUERY
   private function getConstraintName($query){
@@ -148,25 +148,77 @@ class Funcoes{
 
   //MÉTODO DE ANÁLISE ESTRUTURAL DAS COLUNAS DE CADA TABELA DOS BANCOS
   public function getAnaliseColunas(){
+    
+    ini_set('display_errors',true);
+    error_reporting(E_ALL);
+    
 
     //OBTEM OS OBJETOS DOS BANCOS A E B
-    $obA = $this->getBancoA();
-    $obB = $this->getBancoB();
+    $objetoA = $this->getBancoA();
+    $objetoB = $this->getBancoB();
 
     //SQL PARA MOSTRAR AS COLUNAS
     $sql = 'SHOW COLUMNS FROM ';
 
-    //OBTENDO AS TABELAS SALVAS NAS VARIÁVEIS PELO MÉTODO ANTERIOR
-    $tabelasA = $this->tabelasA;
-    $tabelasB = $this->tabelasB;
+    $tabelasA = $objetoA->execSQL("SHOW TABLES")->fetchAll();
+    $tabelasB = $objetoB->execSQL("SHOW TABLES")->fetchAll();
 
-    //OBTEM SOMENTE AS TABELAS QUE ESTIVEREM NA INTERSECÇÃO DOS DOIS BANCOS
-    $tabelasAB = array_intersect($tabelasA,$tabelasB);
+    $tabelasA = array_map(function($value){
+      return $value[0];
+    },$tabelasA);
+    
+    $tabelasB = array_map(function($value){
+      return $value[0];
+    },$tabelasB);
 
+    $tableasComuns = array_intersect($tabelasA,$tabelasB);
 
     //PRIMEIRO LAÇO PARA ANDAR PELAS TABELAS
-    foreach($tabelasAB as $key=>$value){
+    $colunasA = array();
+    $colunasB = array();
+    foreach($tableasComuns as $key=>$value){
+      // $colunasA[$value] = $objetoA->execSQL("SHOW FIELDS FROM {$value}")->fetchAll();
+      // $colunasB[$value] = $objetoB->execSQL("SHOW FIELDS FROM {$value}")->fetchAll();
+      $columnsA = $objetoA->execSQL("SHOW FIELDS FROM {$value}")->fetchAll(PDO::FETCH_ASSOC);
+      $columnsB = $objetoB->execSQL("SHOW FIELDS FROM {$value}")->fetchAll(PDO::FETCH_ASSOC);
+      $fieldsA = array_map(function($value){
+        return $value["Field"];
+      },$columnsA);
+      $fieldsB = array_map(function($value){
+        return $value["Field"];
+      },$columnsB);
 
+      $newColumnsA = array();
+
+      foreach($columnsA as $column){
+        unset($column["Null"]);
+        $newColumnsA[$column["Field"]] = $column;
+      }
+
+      $colunasDiferentes = array_diff($fieldsA,$fieldsB);
+      foreach($colunasDiferentes as $key=>$coluna){
+        if($coluna == "default") continue;
+        $dataType = $newColumnsA[$coluna]["Type"];
+        $query = "ALTER TABLE {$value} ADD {$coluna} {$dataType} NULL";
+        if($newColumnsA[$coluna]["Default"] != ""){
+          $defaultValue = $newColumnsA[$coluna]["Default"];
+          $defaultValue = str_replace("'","",$defaultValue);
+          
+          if($defaultValue == "current_timestamp()"){
+            $query .= " DEFAULT {$defaultValue}";
+          }else{
+            $query .= " DEFAULT '{$defaultValue}'";
+          }
+        } 
+        echo '<pre>';print_r($query);echo'</pre>';
+        $objetoB->execSQL($query);
+      }
+      
+    }
+    exit;
+    
+    // echo '<pre>';print_r($teste);echo'</pre>';
+    /*
       //AUXILIARES
       $auxA = array();
       $auxB = array();
@@ -174,8 +226,8 @@ class Funcoes{
       $mudancas = false;
 
       //EXECUÇÃO DAS QUERIES PARA OBTER OS CAMPOS
-      $resA = $obA->execSQL($sql.$value);
-      $resB = $obB->execSQL($sql.$value);
+      $resA = $obA->execSQL($sql . $value);
+      $resB = $obB->execSQL($sql . $value);
 
       //SEGUNDO LAÇO PARA ATRIBUIR OS CAMPOS DA TABELA DO BANCO A AO AUXILIAR A
       while($lineA = $resA->fetch(PDO::FETCH_ASSOC)){
@@ -190,6 +242,8 @@ class Funcoes{
       //OBTENDO OS CAMPOS ÚNICOS
       $difCamposAB = array_diff_assoc($auxA,$auxB);
       $difCamposBA = array_diff_assoc($auxB,$auxA);
+
+      echo '<pre>';print_r("AAAAAAAAAAAAAAAAAAAAAAA");echo'</pre>';exit;
 
       //OBTENDO OS CAMPOS QUE ESTIVEREM NA INTERSECÇÃO DOS DOIS BANCOS
       $camposAB = array_intersect_assoc($auxA,$auxB);
@@ -213,7 +267,7 @@ class Funcoes{
         $this->analiseColunasAB[$value]['dif'] = $altCamposAB;
         $this->resultadoColunas = false;
       }
-    }
+    }*/
   }
 
   //MÉTODO PARA RETORNAR UM ARRAY CONTENDO AS INFORMAÇÕES DA ANÁLISE PARA SEREM EXIBIDAS NO ARQUIVO DE RESULTADO
